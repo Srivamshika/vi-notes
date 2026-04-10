@@ -1,0 +1,983 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Vi-Notes Editor</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f4f6f8;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      min-height: 100vh;
+      margin: 0;
+      padding: 24px 16px;
+    }
+
+    .container {
+      background: white;
+      padding: 20px;
+      width: min(760px, 100%);
+      border-radius: 12px;
+      box-shadow: 0 4px 18px rgba(0, 0, 0, 0.08);
+    }
+
+    h2 {
+      margin: 0 0 12px;
+      text-align: center;
+    }
+
+    textarea {
+      width: 100%;
+      height: 180px;
+      padding: 12px;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+      resize: vertical;
+      font-size: 14px;
+      outline: none;
+      box-sizing: border-box;
+    }
+
+    textarea:focus {
+      border-color: #007bff;
+    }
+
+    .toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      margin: 14px 0;
+    }
+
+    .stat-card {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 10px;
+      font-size: 13px;
+    }
+
+    .stat-card strong {
+      display: block;
+      font-size: 18px;
+      margin-top: 4px;
+    }
+
+    .buttons {
+      margin-top: 12px;
+      display: flex;
+      gap: 10px;
+      justify-content: space-between;
+    }
+
+    button {
+      padding: 9px 16px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      color: white;
+      font-size: 14px;
+    }
+
+    .save-btn {
+      background-color: #28a745;
+    }
+
+    .view-btn {
+      background-color: #007bff;
+    }
+
+    .logout-btn {
+      background-color: #dc3545;
+    }
+
+    button:hover {
+      opacity: 0.92;
+    }
+
+    .panel {
+      margin-top: 16px;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      padding: 14px;
+      background: #fbfdff;
+    }
+
+    .panel h3 {
+      margin: 0 0 10px;
+      font-size: 16px;
+    }
+
+    .status {
+      margin-top: 14px;
+      padding: 10px 12px;
+      border-radius: 8px;
+      font-size: 14px;
+      display: none;
+    }
+
+    .status.info {
+      display: block;
+      background: #eff6ff;
+      color: #1d4ed8;
+      border: 1px solid #bfdbfe;
+    }
+
+    .status.success {
+      display: block;
+      background: #ecfdf3;
+      color: #047857;
+      border: 1px solid #a7f3d0;
+    }
+
+    .status.error {
+      display: block;
+      background: #fef2f2;
+      color: #b91c1c;
+      border: 1px solid #fecaca;
+    }
+
+    #sessions {
+      max-height: 220px;
+      overflow-y: auto;
+    }
+
+    .session-item {
+      background: #f1f5f9;
+      padding: 10px;
+      margin-bottom: 8px;
+      border-radius: 8px;
+      font-size: 13px;
+      line-height: 1.4;
+    }
+
+    #analysis {
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    .muted {
+      color: #64748b;
+    }
+
+    .mini-btn {
+      padding: 6px 10px;
+      font-size: 12px;
+      border-radius: 6px;
+      background: #334155;
+    }
+
+    .session-actions {
+      margin-top: 8px;
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .replay-meta {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 10px;
+      font-size: 13px;
+    }
+
+    .replay-controls {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+
+    .replay-controls select {
+      padding: 7px 10px;
+      border-radius: 6px;
+      border: 1px solid #cbd5e1;
+      background: white;
+      color: #0f172a;
+    }
+
+    .replay-track {
+      height: 8px;
+      border-radius: 999px;
+      background: #e2e8f0;
+      overflow: hidden;
+      margin-bottom: 12px;
+    }
+
+    .replay-track > div {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #2563eb, #0f766e);
+      transition: width 120ms linear;
+    }
+
+    .replay-output {
+      min-height: 180px;
+      white-space: pre-wrap;
+      overflow: auto;
+      background: #f8fafc;
+      border: 1px solid #cbd5e1;
+      border-radius: 10px;
+      padding: 12px;
+      margin: 0 0 10px;
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      line-height: 1.5;
+      color: #0f172a;
+    }
+
+    .replay-output.paste-active {
+      background: #fff7ed;
+      border-color: #fdba74;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="toolbar">
+      <h2>Vi-Notes Writing Editor</h2>
+      <button class="logout-btn" onclick="logout()">Logout</button>
+    </div>
+
+    <textarea id="editor" placeholder="Start typing here. Try typing naturally, pausing, deleting, and pasting a small section to see the advanced analysis populate in MongoDB."></textarea>
+
+    <div class="stats">
+      <div class="stat-card">Keystrokes<strong id="keystrokeCount">0</strong></div>
+      <div class="stat-card">Pastes<strong id="pasteCountView">0</strong></div>
+      <div class="stat-card">Deletes<strong id="deleteCountView">0</strong></div>
+      <div class="stat-card">Focus Interruptions<strong id="focusLossView">0</strong></div>
+    </div>
+
+    <div class="buttons">
+      <button id="saveButton" class="save-btn" onclick="saveText()">Save Session</button>
+      <button class="view-btn" onclick="loadSessions()">View Sessions</button>
+    </div>
+
+    <div id="statusMessage" class="status"></div>
+
+    <div class="panel">
+      <h3>Latest Analysis</h3>
+      <div id="analysis" class="muted">Save a session to see trust score, paste detection, device trust, and biometric status.</div>
+    </div>
+
+    <div class="panel">
+      <h3>Saved Sessions</h3>
+      <div id="sessions" class="muted">Click View Sessions to load saved sessions.</div>
+    </div>
+
+    <div class="panel">
+      <h3>Replay Viewer</h3>
+      <div class="replay-meta">
+        <div><strong>Session:</strong> <span id="replaySessionLabel">No session loaded</span></div>
+        <div id="replayProgressLabel" class="muted">0 / 0 events</div>
+      </div>
+      <div class="replay-controls">
+        <button id="replayPlayButton" class="mini-btn" onclick="playReplay()">Play</button>
+        <button id="replayPauseButton" class="mini-btn" onclick="pauseReplay()" disabled>Pause</button>
+        <button id="replayResetButton" class="mini-btn" onclick="resetReplay()" disabled>Reset</button>
+        <select id="replaySpeed" onchange="setReplaySpeed(this.value)">
+          <option value="0.5">0.5x</option>
+          <option value="1" selected>1x</option>
+          <option value="1.5">1.5x</option>
+          <option value="2">2x</option>
+        </select>
+      </div>
+      <div class="replay-track"><div id="replayProgressFill"></div></div>
+      <pre id="replayOutput" class="replay-output">Pick a saved session and click Replay.</pre>
+      <div id="replayEventInfo" class="muted">The replay will show typed characters and paste bursts.</div>
+    </div>
+  </div>
+
+  <script>
+    const hasAuthToken = Boolean(localStorage.getItem("token"));
+    if (!hasAuthToken) {
+      window.location.replace("/login.html");
+    }
+
+    const editor = document.getElementById("editor");
+    const apiBase = window.location.origin;
+
+    let startTime = null;
+    let lastKeyTimestamp = null;
+    let totalKeystrokes = 0;
+    let pasteCount = 0;
+    let pastedTextLength = 0;
+    let deleteCount = 0;
+    let focusLossCount = 0;
+    let intervals = [];
+    let pauseIntervals = [];
+    let pastedSegments = [];
+    let keystrokeEvents = [];
+    let versionHistory = [];
+    let lastSnapshotContent = "";
+    let isSaving = false;
+    let hiddenStartedAt = null;
+    let replayState = {
+      sessionId: null,
+      sessionLabel: "",
+      events: [],
+      index: 0,
+      playing: false,
+      timer: null,
+      speed: 1
+    };
+
+    const MAX_REPLAY_EVENTS = 400;
+    const MAX_VERSIONS = 20;
+    const FOCUS_INTERRUPTION_MIN_MS = 500;
+
+    function getAuthHeaders() {
+      const token = localStorage.getItem("token");
+      return token ? { Authorization: `Bearer ${token}` } : {};
+    }
+
+    function toNumber(value, fallback = 0) {
+      const numericValue = Number(value);
+      return Number.isFinite(numericValue) ? numericValue : fallback;
+    }
+
+    async function fetchJsonWithTimeout(url, options = {}, timeoutMs = 8000) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+      try {
+        const response = await fetch(url, { ...options, signal: controller.signal });
+        const data = await response.json().catch(() => ({}));
+        return { response, data };
+      } finally {
+        clearTimeout(timer);
+      }
+    }
+
+    function updateLiveStats() {
+      document.getElementById("keystrokeCount").innerText = totalKeystrokes;
+      document.getElementById("pasteCountView").innerText = pasteCount;
+      document.getElementById("deleteCountView").innerText = deleteCount;
+      document.getElementById("focusLossView").innerText = focusLossCount;
+    }
+
+    function showStatus(message, type = "info") {
+      const statusEl = document.getElementById("statusMessage");
+      statusEl.className = `status ${type}`;
+      statusEl.innerText = message;
+    }
+
+    function clearStatus() {
+      const statusEl = document.getElementById("statusMessage");
+      statusEl.className = "status";
+      statusEl.innerText = "";
+    }
+
+    function startSessionIfNeeded() {
+      if (!startTime) {
+        startTime = new Date();
+      }
+    }
+
+    function getPrintableKey(key) {
+      if (key.length === 1) {
+        return key;
+      }
+
+      return `[${key}]`;
+    }
+
+    function recordReplayEvent(event) {
+      keystrokeEvents.push(event);
+
+      if (keystrokeEvents.length > MAX_REPLAY_EVENTS) {
+        keystrokeEvents = keystrokeEvents.slice(-MAX_REPLAY_EVENTS);
+      }
+    }
+
+    function createVersionSnapshot(reason) {
+      const content = editor.value;
+      if (!content && !lastSnapshotContent) {
+        return;
+      }
+
+      if (content === lastSnapshotContent && reason !== "save") {
+        return;
+      }
+
+      const previousLength = lastSnapshotContent.length;
+      const currentLength = content.length;
+
+      versionHistory.push({
+        versionNumber: versionHistory.length + 1,
+        timestamp: new Date().toISOString(),
+        reason,
+        content,
+        characterCount: currentLength,
+        changesSinceLast: {
+          inserted: Math.max(0, currentLength - previousLength),
+          deleted: Math.max(0, previousLength - currentLength),
+          modified: Math.min(previousLength, currentLength)
+        }
+      });
+
+      if (versionHistory.length > MAX_VERSIONS) {
+        versionHistory = versionHistory.slice(-MAX_VERSIONS);
+      }
+
+      lastSnapshotContent = content;
+    }
+
+    function getDeviceInfo() {
+      return {
+        osType: navigator.platform || "Unknown",
+        browserAgent: navigator.userAgent || "Unknown",
+        screenResolution: `${window.screen.width}x${window.screen.height}`,
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "Unknown",
+        inputMethod: "keyboard",
+        language: navigator.language || "Unknown"
+      };
+    }
+
+    function resetSessionState() {
+      startTime = null;
+      lastKeyTimestamp = null;
+      totalKeystrokes = 0;
+      pasteCount = 0;
+      pastedTextLength = 0;
+      deleteCount = 0;
+      focusLossCount = 0;
+      intervals = [];
+      pauseIntervals = [];
+      pastedSegments = [];
+      keystrokeEvents = [];
+      versionHistory = [];
+      lastSnapshotContent = "";
+      hiddenStartedAt = null;
+      editor.value = "";
+      updateLiveStats();
+    }
+
+    function renderAnalysis(analysis, records = null) {
+      if (!analysis) {
+        document.getElementById("analysis").innerHTML = "No analysis returned.";
+        return;
+      }
+
+      const reportLink = analysis.reportToken
+        ? `<a href="/verify/${analysis.reportToken}" target="_blank">Open report</a>`
+        : "Not available";
+
+      const recordSummary = records
+        ? `<div><strong>Generated Records:</strong> text ${records.textId}, trust ${records.trustScoreId}, report ${records.reportId}</div>`
+        : "";
+
+      const aiLabel = analysis.aiVerdict ? analysis.aiVerdict.replaceAll("_", " ") : "Not available";
+      const pasteLabel = analysis.pasteVerdict ? analysis.pasteVerdict.replaceAll("_", " ") : "Not available";
+      const biometricLabel = analysis.biometricStatus ? analysis.biometricStatus.replaceAll("_", " ") : "Not available";
+
+      document.getElementById("analysis").innerHTML = `
+        <div><strong>Trust Score:</strong> ${analysis.trustScore} (${analysis.riskLevel})</div>
+        <div><strong>Paste Detection:</strong> ${pasteLabel}</div>
+        <div><strong>AI Suspicion:</strong> ${aiLabel}</div>
+        <div><strong>Device Trust:</strong> ${analysis.deviceTrustScore}</div>
+        <div><strong>Biometric Status:</strong> ${biometricLabel}</div>
+        <div><strong>Report:</strong> ${reportLink}</div>
+        ${recordSummary}
+        <div class="muted">Focus interruptions count how many times you leave the writing window while the session is active.</div>
+      `;
+    }
+
+    function stopReplayTimer() {
+      if (replayState.timer) {
+        clearTimeout(replayState.timer);
+        replayState.timer = null;
+      }
+    }
+
+    function normalizeReplayCharacter(character) {
+      const value = String(character || "");
+
+      if (value === "[Enter]") {
+        return "\n";
+      }
+
+      if (value === "[Tab]") {
+        return "\t";
+      }
+
+      if (value === "[Space]") {
+        return " ";
+      }
+
+      if (value.startsWith("[") && value.endsWith("]")) {
+        return "";
+      }
+
+      return value;
+    }
+
+    function insertAt(text, position, fragment) {
+      const safeText = String(text || "");
+      const safeFragment = String(fragment || "");
+      const index = Math.max(0, Math.min(toNumber(position, safeText.length), safeText.length));
+      return safeText.slice(0, index) + safeFragment + safeText.slice(index);
+    }
+
+    function deleteAt(text, position, eventCharacter) {
+      const safeText = String(text || "");
+      const index = Math.max(0, Math.min(toNumber(position, safeText.length), safeText.length));
+
+      if (eventCharacter === "[Backspace]") {
+        const deleteIndex = index > 0 ? index - 1 : 0;
+        return safeText.slice(0, deleteIndex) + safeText.slice(deleteIndex + 1);
+      }
+
+      if (eventCharacter === "[Delete]") {
+        return safeText.slice(0, index) + safeText.slice(index + 1);
+      }
+
+      return safeText;
+    }
+
+    function applyReplayEvent(text, event) {
+      if (!event) {
+        return String(text || "");
+      }
+
+      if (event.type === "paste") {
+        const pastedChunk = String(event.text || event.character || "[PASTE]");
+        return insertAt(text, event.position, pastedChunk);
+      }
+
+      if (event.type === "delete") {
+        return deleteAt(text, event.position, event.character);
+      }
+
+      const char = normalizeReplayCharacter(event.character);
+      if (!char) {
+        return String(text || "");
+      }
+
+      return insertAt(text, event.position, char);
+    }
+
+    function buildReplayText(events, uptoIndex) {
+      let output = "";
+      const limit = Math.max(0, Math.min(uptoIndex, events.length));
+
+      for (let i = 0; i < limit; i += 1) {
+        output = applyReplayEvent(output, events[i]);
+      }
+
+      return output;
+    }
+
+    function describeReplayEvent(event) {
+      if (!event) {
+        return "No event selected yet.";
+      }
+
+      if (event.type === "paste") {
+        const pastedLength = String(event.text || "").length || String(event.character || "").length;
+        return `Paste event. Inserted ${pastedLength} characters instantly.`;
+      }
+
+      if (event.type === "delete") {
+        return `Delete event at position ${event.position}.`;
+      }
+
+      return `Typed ${event.character || "a key"} at position ${event.position}.`;
+    }
+
+    function updateReplayButtons() {
+      const hasEvents = replayState.events.length > 0;
+      document.getElementById("replayPlayButton").disabled = !hasEvents || replayState.playing;
+      document.getElementById("replayPauseButton").disabled = !hasEvents || !replayState.playing;
+      document.getElementById("replayResetButton").disabled = !hasEvents;
+    }
+
+    function renderReplay() {
+      const outputEl = document.getElementById("replayOutput");
+      const progressEl = document.getElementById("replayProgressFill");
+      const labelEl = document.getElementById("replayProgressLabel");
+      const infoEl = document.getElementById("replayEventInfo");
+      const sessionLabelEl = document.getElementById("replaySessionLabel");
+      const totalEvents = replayState.events.length;
+      const currentEvent = totalEvents > 0 && replayState.index > 0
+        ? replayState.events[replayState.index - 1]
+        : null;
+      const previewText = totalEvents > 0
+        ? buildReplayText(replayState.events, replayState.index)
+        : "Pick a saved session and click Replay.";
+      const progress = totalEvents > 0 ? Math.round((replayState.index / totalEvents) * 100) : 0;
+      const emptyMessage = totalEvents > 0
+        ? "Replay loaded. Press Play to build the essay step by step."
+        : "Pick a saved session and click Replay.";
+
+      outputEl.textContent = previewText || emptyMessage;
+      outputEl.classList.toggle("paste-active", currentEvent?.type === "paste");
+      progressEl.style.width = `${progress}%`;
+      labelEl.textContent = totalEvents > 0
+        ? `${replayState.index} / ${totalEvents} events`
+        : "0 / 0 events";
+      infoEl.textContent = totalEvents > 0
+        ? (currentEvent ? describeReplayEvent(currentEvent) : "Replay loaded. Press Play to start from the beginning.")
+        : "The replay will show typed characters and paste bursts.";
+      sessionLabelEl.textContent = replayState.sessionLabel || "No session loaded";
+      updateReplayButtons();
+    }
+
+    function pauseReplay() {
+      replayState.playing = false;
+      stopReplayTimer();
+      renderReplay();
+    }
+
+    function resetReplay() {
+      pauseReplay();
+      replayState.index = 0;
+      renderReplay();
+    }
+
+    function setReplaySpeed(value) {
+      replayState.speed = Number(value) || 1;
+    }
+
+    function playReplayStep() {
+      if (!replayState.playing) {
+        return;
+      }
+
+      if (replayState.index >= replayState.events.length) {
+        pauseReplay();
+        return;
+      }
+
+      const event = replayState.events[replayState.index];
+      replayState.index += 1;
+      renderReplay();
+
+      const delay = Math.max(60, Math.min(1200, (toNumber(event.interval, 120) + 20) / replayState.speed));
+      stopReplayTimer();
+      replayState.timer = setTimeout(playReplayStep, delay);
+    }
+
+    function playReplay() {
+      if (!replayState.events.length || replayState.playing) {
+        return;
+      }
+
+      replayState.playing = true;
+      renderReplay();
+      playReplayStep();
+    }
+
+    async function loadReplay(sessionId, sessionLabel = "") {
+      if (!sessionId) {
+        return;
+      }
+
+      stopReplayTimer();
+      replayState.playing = false;
+      replayState.speed = Number(document.getElementById("replaySpeed").value) || 1;
+      replayState.index = 0;
+      replayState.sessionId = sessionId;
+      replayState.sessionLabel = sessionLabel || "Loading replay...";
+      replayState.events = [];
+      renderReplay();
+      showStatus("Loading replay...", "info");
+
+      try {
+        const { response, data } = await fetchJsonWithTimeout(`${apiBase}/api/version/replay/${sessionId}`, {
+          headers: {
+            ...getAuthHeaders()
+          }
+        });
+
+        if (!response.ok) {
+          throw new Error(data.message || "Unable to load replay");
+        }
+
+        const events = Array.isArray(data.keystrokeReplay)
+          ? data.keystrokeReplay.slice().sort((a, b) => Number(a.timestamp) - Number(b.timestamp))
+          : [];
+
+        replayState.sessionLabel = sessionLabel || sessionId;
+        replayState.events = events;
+        replayState.index = 0;
+        replayState.playing = false;
+        renderReplay();
+        showStatus(events.length ? "Replay loaded." : "No replay data found for this session.", events.length ? "success" : "info");
+      } catch (error) {
+        showStatus(error.message || "Unable to load replay", "error");
+      }
+    }
+
+    function openReplay(sessionId, encodedPreview = "") {
+      const preview = encodedPreview ? decodeURIComponent(encodedPreview) : "";
+      loadReplay(sessionId, preview);
+    }
+
+    function startFocusInterruption() {
+      if (!startTime || isSaving) {
+        hiddenStartedAt = null;
+        return false;
+      }
+
+      if (hiddenStartedAt === null) {
+        hiddenStartedAt = Date.now();
+      }
+
+      return true;
+    }
+
+    function endFocusInterruption() {
+      if (!hiddenStartedAt) {
+        return;
+      }
+
+      const hiddenDuration = Date.now() - hiddenStartedAt;
+      hiddenStartedAt = null;
+
+      // Ignore short browser or UI transitions so only meaningful tab/app switching is counted.
+      if (hiddenDuration >= FOCUS_INTERRUPTION_MIN_MS) {
+        focusLossCount += 1;
+        updateLiveStats();
+      }
+    }
+
+    editor.addEventListener("focus", startSessionIfNeeded);
+
+    document.addEventListener("visibilitychange", () => {
+      if (document.hidden) {
+        startFocusInterruption();
+      } else {
+        endFocusInterruption();
+      }
+    });
+
+    window.addEventListener("blur", () => {
+      startFocusInterruption();
+    });
+
+    window.addEventListener("focus", () => {
+      endFocusInterruption();
+    });
+
+    editor.addEventListener("keydown", (event) => {
+      startSessionIfNeeded();
+
+      const now = Date.now();
+      const position = editor.selectionStart || 0;
+      let interval = 0;
+
+      if (lastKeyTimestamp) {
+        interval = now - lastKeyTimestamp;
+        intervals.push(interval);
+
+        if (interval >= 900) {
+          pauseIntervals.push(interval);
+        }
+      }
+
+      lastKeyTimestamp = now;
+
+      const isDelete = event.key === "Backspace" || event.key === "Delete";
+      const isTrackableKey = event.key.length === 1 || ["Backspace", "Delete", "Enter", "Tab", " "].includes(event.key);
+
+      if (isTrackableKey) {
+        totalKeystrokes += 1;
+      }
+
+      if (isDelete) {
+        deleteCount += 1;
+      }
+
+      recordReplayEvent({
+        timestamp: now,
+        type: isDelete ? "delete" : "keystroke",
+        character: getPrintableKey(event.key),
+        position,
+        interval
+      });
+
+      updateLiveStats();
+    });
+
+    editor.addEventListener("input", () => {
+      startSessionIfNeeded();
+
+      const content = editor.value;
+      const shouldSnapshot =
+        versionHistory.length === 0 ||
+        Math.abs(content.length - lastSnapshotContent.length) >= 20 ||
+        /[.!?\n]$/.test(content);
+
+      if (shouldSnapshot) {
+        createVersionSnapshot("typing");
+      }
+    });
+
+    editor.addEventListener("paste", (event) => {
+      startSessionIfNeeded();
+
+      const pastedData = event.clipboardData.getData("text");
+      const startPosition = editor.selectionStart || 0;
+
+      pasteCount += 1;
+      pastedTextLength += pastedData.length;
+
+      pastedSegments.push({
+        startPosition,
+        endPosition: startPosition + pastedData.length,
+        text: pastedData.slice(0, 180),
+        length: pastedData.length,
+        timestamp: new Date().toISOString()
+      });
+
+      recordReplayEvent({
+        timestamp: Date.now(),
+        type: "paste",
+        character: "[PASTE]",
+        text: pastedData.slice(0, 500),
+        position: startPosition,
+        interval: lastKeyTimestamp ? Date.now() - lastKeyTimestamp : 0
+      });
+
+      updateLiveStats();
+
+      setTimeout(() => {
+        createVersionSnapshot("paste");
+      }, 0);
+    });
+
+    async function saveText() {
+      const text = editor.value;
+
+      if (!startTime || !text.trim()) {
+        showStatus("Type some content first.", "error");
+        return;
+      }
+
+      if (isSaving) {
+        return;
+      }
+
+      isSaving = true;
+      clearStatus();
+      showStatus("Saving session and running analysis...", "info");
+      document.getElementById("saveButton").disabled = true;
+      document.getElementById("saveButton").innerText = "Saving...";
+
+      createVersionSnapshot("save");
+
+      const endTime = new Date();
+      const duration = (endTime - startTime) / 1000;
+
+      const payload = {
+        content: text,
+        startTime,
+        endTime,
+        duration,
+        pasteCount,
+        pastedTextLength,
+        totalKeystrokes,
+        telemetry: {
+          intervals,
+          pauseIntervals,
+          deleteCount,
+          focusLossCount,
+          pastedSegments,
+          keystrokeEvents,
+          versionHistory,
+          deviceInfo: getDeviceInfo()
+        }
+      };
+
+      try {
+        const { response, data } = await fetchJsonWithTimeout(`${apiBase}/save`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...getAuthHeaders()
+          },
+          body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+          throw new Error(data.message || "Unable to save session");
+        }
+
+        renderAnalysis(data.analysis, data.records);
+        showStatus(data.message, "success");
+        resetSessionState();
+        await loadSessions();
+        await loadReplay(data.sessionId, text.slice(0, 70));
+      } catch (error) {
+        showStatus(error.message || "Unable to save session", "error");
+      } finally {
+        isSaving = false;
+        document.getElementById("saveButton").disabled = false;
+        document.getElementById("saveButton").innerText = "Save Session";
+      }
+    }
+
+    async function loadSessions() {
+      try {
+        const { response, data } = await fetchJsonWithTimeout(`${apiBase}/my-sessions`, {
+          headers: {
+            ...getAuthHeaders()
+          }
+        });
+
+        if (!response.ok) {
+          throw new Error(data.message || "Unable to load sessions");
+        }
+
+        const sessions = Array.isArray(data) ? data : [];
+        const sessionsDiv = document.getElementById("sessions");
+
+        if (!Array.isArray(sessions) || sessions.length === 0) {
+          sessionsDiv.innerHTML = "No saved sessions yet.";
+          return;
+        }
+
+          sessionsDiv.innerHTML = sessions.map((session) => {
+            const trustLabel = session.analysisSummary?.trustScore ?? "Not analyzed";
+            const riskLabel = session.analysisSummary?.riskLevel ?? "Legacy or failed analysis";
+            const reportTokenLabel = session.analysisSummary?.reportToken ?? "No report yet";
+            const previewText = encodeURIComponent((session.content || "").slice(0, 70));
+
+            return `
+          <div class="session-item">
+            <div><strong>Session ID:</strong> ${session._id}</div>
+            <div><strong>Preview:</strong> ${(session.content || "").slice(0, 70)}</div>
+            <div>Trust Score: ${trustLabel} | Risk: ${riskLabel}</div>
+            <div>Pastes: ${session.pasteCount || 0} | Deletes: ${session.sessionMetrics?.deletionCount || 0} | Focus Interruptions: ${session.sessionMetrics?.focusLossCount || 0}</div>
+            <div>Report Token: ${reportTokenLabel}</div>
+            <div class="session-actions">
+              <button class="mini-btn" onclick="openReplay('${session._id}', '${previewText}')">Replay</button>
+            </div>
+          </div>
+        `;
+          }).join("");
+      } catch (error) {
+        showStatus(error.message || "Unable to load sessions", "error");
+      }
+    }
+
+    function logout() {
+      localStorage.removeItem("token");
+      window.location.replace("/login.html");
+    }
+
+    updateLiveStats();
+  </script>
+</body>
+</html>
